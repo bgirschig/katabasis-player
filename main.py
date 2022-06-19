@@ -65,6 +65,7 @@ def update():
 
     # In case we reach the end of the video (before resetting time to 0), we need to "reload" the video
     if end_reached:
+        print("reached end")
         player.set_media(player.get_media())
         player.play()
         end_reached = False
