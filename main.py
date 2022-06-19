@@ -2,20 +2,22 @@ import logging
 import math
 import os
 from dataset import Dataset
-
-from utils import remap_range, seconds_to_string
+import argparse
+from utils import seconds_to_string
 from view_animator import ViewAnimator
-os.add_dll_directory(r"C:/Program Files/VideoLAN/VLC")
+
+try:
+    o = os.add_dll_directory(r"C:/Program Files/VideoLAN/VLC")
+except:
+    print("could not add dll directory. Assuming it's not needed")
 
 import vlc
 import time
 
-media_path = "../../media/sample.mp4"
-media_path = "../../media/360_video_meta.mp4"
-media_path = "c:/Users/basti/Documents/projects/Katabasis/object_detection/yolov5/runs/detect/exp13_360model/equirect_360.mp4"
-# media_path = "c:/Users/basti/Documents/projects/Katabasis/tools/test_cubemap/test_cubemap.mp4"
-
-dataset_path = "./data/360_prepped_data.csv"
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument("media_path", help="the 360 video file")
+parser.add_argument("dataset_path", help="the points dataset. Must contain the following columns: [frame,point_id,x,y,z]")
+args = parser.parse_args()
 
 LOGLEVEL = os.environ.get('LOG_LEVEL', 'WARNING').upper()
 logging.basicConfig(level=LOGLEVEL)
@@ -33,7 +35,7 @@ media_fps = -1
 def init():
     global dataset, viewAnimator
 
-    dataset = Dataset(dataset_path)
+    dataset = Dataset(args.dataset_path)
     viewAnimator = ViewAnimator(dataset)
 
     init_player()
@@ -41,7 +43,8 @@ def init():
 def init_player():
     global media_duration, player, media_fps
 
-    player = vlc.MediaPlayer(media_path)
+    vlc_instance = vlc.Instance(['--video-on-top'])
+    player = vlc_instance.media_player_new(args.media_path)
     player.set_fullscreen(True)
     player.play()
 
