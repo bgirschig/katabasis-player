@@ -1,7 +1,6 @@
 import logging
 import math
 import os
-from signal import default_int_handler
 from dataset import Dataset
 import argparse
 from utils import seconds_to_string
@@ -30,6 +29,8 @@ parser.add_argument("--fov_speed", type=float, help="How fast to animate the fie
 parser.add_argument("--min_fov", type=float, help="Minimum value for the field of view", default=10)
 parser.add_argument("--max_fov", type=float, help="Maximum value for the field of view", default=150)
 
+parser.add_argument("--windowed", action="store_true", help="set this flag to disable the true fullscreen mode")
+
 args = parser.parse_args()
 
 LOGLEVEL = os.environ.get('LOG_LEVEL', 'WARNING').upper()
@@ -56,7 +57,10 @@ def init():
 def init_player():
     global media_duration, player, media_fps
 
-    vlc_instance = vlc.Instance(['--video-on-top'])
+    vlc_params = []
+    if (not args.windowed): vlc_params.append("--video-on-top")
+    vlc_instance = vlc.Instance(vlc_params)
+
     player = vlc_instance.media_player_new(args.media_path)
     player.set_fullscreen(True)
     player.play()
