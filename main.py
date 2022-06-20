@@ -1,22 +1,35 @@
 import logging
 import math
 import os
+from signal import default_int_handler
 from dataset import Dataset
 import argparse
 from utils import seconds_to_string
 from view_animator import ViewAnimator
+import time
 
 try:
     o = os.add_dll_directory(r"C:/Program Files/VideoLAN/VLC")
 except:
     print("could not add dll directory. Assuming it's not needed")
-
 import vlc
-import time
 
-parser = argparse.ArgumentParser(description='Process some integers.')
+
+parser = argparse.ArgumentParser(description='A 360 video player that tracks objects in the video (points are pre-computed in a csv dataset)')
+
 parser.add_argument("media_path", help="the 360 video file")
 parser.add_argument("dataset_path", help="the points dataset. Must contain the following columns: [frame,point_id,x,y,z]")
+
+parser.add_argument("--start_time", type=float, help="where to start the video, in seconds", default=0)
+
+parser.add_argument("--track_objects", action="store_true", help="add this flag to make the camera track objects in the scene")
+parser.add_argument("--yaw_speed", type=float, help="How fast to change the yaw when not tracking an object", default=1)
+parser.add_argument("--pitch_speed", type=float, help="How fast to change the pitch when not tracking an object", default=0)
+parser.add_argument("--roll_speed", type=float, help="How fast to change the roll", default=10)
+parser.add_argument("--fov_speed", type=float, help="How fast to animate the field of view (/zoom). If set to 0, FOV will be set to min_fov", default=1)
+parser.add_argument("--min_fov", type=float, help="Minimum value for the field of view", default=10)
+parser.add_argument("--max_fov", type=float, help="Maximum value for the field of view", default=150)
+
 args = parser.parse_args()
 
 LOGLEVEL = os.environ.get('LOG_LEVEL', 'WARNING').upper()
@@ -36,7 +49,7 @@ def init():
     global dataset, viewAnimator
 
     dataset = Dataset(args.dataset_path)
-    viewAnimator = ViewAnimator(dataset)
+    viewAnimator = ViewAnimator(dataset, args)
 
     init_player()
 
@@ -61,7 +74,8 @@ def init_player():
 
     # player.set_position(0.5)
     # player.set_position(0.99)
-    # player.set_position(0.03)
+    if (args.start_time > 0):
+        player.set_position(args.start_time / media_duration)
 
 def update():
     global video_time_offset, end_reached
