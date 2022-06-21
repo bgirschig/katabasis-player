@@ -6,6 +6,9 @@ def remap_range(val, inMin, inMax, outMin, outMax):
     normalized = (val-inMin) / inRange
     return outMin + normalized * outRange
 
+def clamp(val, min_value, max_value):
+    return min(max(val, min_value), max_value)
+
 def seconds_to_string(seconds):
     remainder, hours = math.modf(seconds/60/60)
     remainder, minutes = math.modf(remainder*60)

@@ -45,12 +45,15 @@ video_time_offset = -1
 media_duration = -1
 end_reached = False
 media_fps = -1
+prev_time = -1
 
 def init():
-    global dataset, viewAnimator
+    global dataset, viewAnimator, prev_time
 
     dataset = Dataset(args.dataset_path)
     viewAnimator = ViewAnimator(dataset, args)
+
+    prev_time = time.time()
 
     init_player()
 
@@ -82,7 +85,7 @@ def init_player():
         player.set_position(args.start_time / media_duration)
 
 def update():
-    global video_time_offset, end_reached
+    global video_time_offset, end_reached, prev_time
 
     # In case we reach the end of the video (before resetting time to 0), we need to "reload" the video
     if end_reached:
@@ -97,17 +100,21 @@ def update():
         return
 
     now = time.time()
+    delta_time = now - prev_time
+    prev_time = now
+
     video_time = now - video_time_offset
     current_frame = math.floor(video_time * media_fps)
-    viewAnimator.update(current_frame)
+
+    viewAnimator.update(current_frame, now, delta_time)
 
     # Do a manual loop to make it as seamless as possible
-    time_to_end = (media_duration-video_time)
-    if (time_to_end < 0.5):
+    time_to_media_end = (media_duration-video_time)
+    if (time_to_media_end < 0.5):
         player.set_position(0)
         video_time_offset = now
 
-    logging.info(f"{seconds_to_string(video_time/1000)} ({video_time/media_duration*100:.2f}%) tte: {time_to_end:.2f}")
+    logging.info(f"{seconds_to_string(video_time/1000)} ({video_time/media_duration*100:.2f}%) tte: {time_to_media_end:.2f}")
 
     player.video_update_viewpoint(viewAnimator.get_viewpoint(), True)
 
