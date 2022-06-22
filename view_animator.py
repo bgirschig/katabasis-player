@@ -98,7 +98,8 @@ class ViewAnimator3:
         return None
 
     def update(self, frame:int, now:float, delta_time:float):
-        # self.rotation *= self.rotation_speed
+        self.rotation = make_slerp(self.rotation, self.rotation*self.rotation_speed)(clamp(delta_time))
+
         if self.config.track_objects:
             self.update_object_tracker(frame, now, delta_time)
 
@@ -111,12 +112,12 @@ class ViewAnimator3:
                 self.current_target_start_time = now
 
                 dataPoint = self.current_object.get_frame(frame)
-                target_rotation = look_at(dataPoint.as_array(), UP)
+                target_rotation = look_at(dataPoint.as_array(), up)
                 self.anim = RotAnimation(self.rotation, target_rotation, now, duration=3)
 
         if self.current_object and self.anim:
             dataPoint = self.current_object.get_frame(frame)
-            self.target_rotation = look_at(dataPoint.as_array(), UP)
+            self.target_rotation = look_at(dataPoint.as_array(), up)
             
             self.anim.update_target(self.target_rotation)
             self.target_rotation = self.anim.get_rotation_at(now)
