@@ -1,6 +1,8 @@
 import csv
 from dataclasses import dataclass, field
 
+from utils import clamp
+
 @dataclass
 class DataPoint:
     id: int = -1
@@ -38,7 +40,21 @@ class Dataset:
         self.frames:list[list[DataObject]] = []
         self.load(file_path)
         pass
-    
+
+    def get_frame(self, frame_idx: int, overflow_mode: str):
+        if overflow_mode == 'clamp':
+            frame_idx = clamp(frame_idx, 0, len(self.frames)-1)
+        elif overflow_mode == 'repeat':
+            frame_idx = frame_idx % len(self.frames)
+        elif overflow_mode == 'empty':
+            if frame_idx < 0 or frame_idx >= len(self.frames):
+                return []
+        else:
+            # let the IndexError go through
+            pass
+
+        return self.frames[frame_idx]
+
     def load(self, file_path):
         with open(file_path) as f:
             reader = csv.DictReader(f)

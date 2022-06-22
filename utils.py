@@ -1,5 +1,14 @@
 import math
 
+DEG_TO_RAD = math.pi / 180
+RAD_TO_DEG = 180 / math.pi
+
+UP = [0, 1, 0]
+DOWN = [0, -1, 0]
+RIGHT = [1, 0, 0]
+FORWARD = [0, 0, 1]
+BACK = [0, 0, -1]
+
 def remap_range(val, inMin, inMax, outMin, outMax):
     inRange = inMax-inMin
     outRange = outMax-outMin

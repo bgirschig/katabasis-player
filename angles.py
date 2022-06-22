@@ -1,4 +1,4 @@
-from scipy.spatial.transform import Rotation
+from scipy.spatial.transform import Rotation, Slerp
 import numpy as np
 from math import pi
 
@@ -31,3 +31,10 @@ def norm(vector):
 
 def rotation_distance(rot1:Rotation, rot2:Rotation) -> float:
     return (rot2 * rot1.inv()).magnitude() * RAD_TO_DEG
+
+def make_slerp(rot1:Rotation, rot2:Rotation) -> Slerp:
+    rots = Rotation.from_quat([
+        rot1.as_quat(),
+        rot2.as_quat(),
+    ])
+    return Slerp([0,1], rots)

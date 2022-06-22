@@ -4,8 +4,11 @@ import os
 from dataset import Dataset
 import argparse
 from utils import seconds_to_string
-from view_animator import ViewAnimator
 import time
+
+from animator_basic import ViewAnimator
+from animator_seeker import ViewAnimator
+from animator_wanderer import ViewAnimator
 
 try:
     o = os.add_dll_directory(r"C:/Program Files/VideoLAN/VLC")

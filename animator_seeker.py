@@ -1,57 +1,15 @@
 from argparse import Namespace
-from copyreg import constructor
-from math import atan2, pi, sqrt
 import math
-from msilib import sequence
 import random
-import time
-from turtle import forward
-from angles import look_at, rotation_distance
+from angles import look_at, rotation_distance, make_slerp
 from dataset import DataObject, Dataset
 import vlc
-from utils import clamp, lerp, remap_range
-from scipy.spatial.transform import Rotation, Slerp, RotationSpline
-from scipy.spatial import geometric_slerp
-import numpy as np
+from rotation_animation import RotationAnimation
+from utils import clamp, remap_range
+from scipy.spatial.transform import Rotation
+from utils import DEG_TO_RAD, RAD_TO_DEG, UP, DOWN, RIGHT, FORWARD, BACK
 
-DEG_TO_RAD = pi / 180
-RAD_TO_DEG = 180 / pi
-
-X, Y, Z, W = 0, 1, 2, 3
-
-UP = [0, 1, 0]
-DOWN = [0, -1, 0]
-RIGHT = [1, 0, 0]
-FORWARD = [0, 0, 1]
-BACK = [0, 0, -1]
-
-# Try AGAIN the lookat and interpolation thingies, manually
-class ViewAnimator4:
-    def __init__(self, dataset:Dataset, config:Namespace) -> None:
-        self.viewpoint = vlc.libvlc_video_new_viewpoint()
-
-        self.rotation = look_at(FORWARD, UP)
-        self.start_rotation = look_at(FORWARD, UP)
-        self.target_rotation = look_at(UP, BACK)
-        self.start_time = time.time()
-        
-        self.anim = RotAnimation(self.start_rotation, self.target_rotation, time.time(), duration=4)
-
-    def get_viewpoint(self):
-        yaw, pitch, roll = self.rotation.as_euler('YXZ', degrees=True)
-
-        self.viewpoint.contents.yaw = yaw
-        self.viewpoint.contents.pitch = pitch
-        self.viewpoint.contents.roll = roll
-        self.viewpoint.contents.field_of_view = 110
-
-        return self.viewpoint
-
-    def update(self, frame:int, now:float, delta_time:float):
-        # lerp_time = (time.time() - self.start_time - 1) / 10
-        self.rotation = self.anim.get_rotation_at(time.time())
-
-class ViewAnimator3:
+class ViewAnimator:
     def __init__(self, dataset:Dataset, config:Namespace) -> None:
         self.config = config
         self.dataset = dataset
@@ -111,7 +69,7 @@ class ViewAnimator3:
                 dataPoint = self.current_object.get_frame(frame)
                 target_rotation = look_at(dataPoint.as_array(), up)
                 distance = rotation_distance(self.rotation, target_rotation)
-                self.anim = RotAnimation(self.rotation, target_rotation, now, duration=distance*6/180)
+                self.anim = RotationAnimation(self.rotation, target_rotation, now, duration=distance*6/180)
 
         if self.current_object and self.anim:
             dataPoint = self.current_object.get_frame(frame)
@@ -137,45 +95,3 @@ class ViewAnimator3:
         if self.current_object and now - self.current_target_start_time > 6: return True
         if not self.current_object.is_in_frame(frame): return True
         return False
-
-class RotAnimation:
-    def __init__(self, start_rotation:Rotation, end_rotation:Rotation, start_time=None, end_time=None, duration=None) -> None:
-        self.start_time = start_time or time.time()
-        self.end_time = end_time or self.start_time + duration
-        self.duration = duration or end_time - self.start_time
-        
-        self.start_rotation = start_rotation
-        self.end_rotation = end_rotation
-
-        self.slerp = make_slerp(start_rotation, end_rotation)
-    
-    def update_target(self, new_rotation:Rotation):
-        self.end_rotation = new_rotation
-        self.slerp = make_slerp(self.start_rotation, self.end_rotation)
-
-    def update_target_forward(self, forward):
-        self.end_rotation = look_at(forward, UP)
-        self.slerp = make_slerp(self.start_rotation, self.end_rotation)
-
-    def smooth_time(self,time):
-        return math.cos((time-1)*math.pi)*0.5+0.5
-
-    def get_rotation_at(self, time):
-        lerp_time = (time - self.start_time) / self.duration
-        lerp_time = clamp(lerp_time)
-        lerp_time = self.smooth_time(lerp_time)
-
-        return self.slerp(lerp_time)
-
-    def get_forward_at(self, time):
-        rot = self.get_rotation_at(time)
-        return rot.apply([0,0,1])
-
-def make_slerp(rot1:Rotation, rot2:Rotation) -> Slerp:
-    rots = Rotation.from_quat([
-        rot1.as_quat(),
-        rot2.as_quat(),
-    ])
-    return Slerp([0,1], rots)
-
-ViewAnimator = ViewAnimator3
