@@ -111,7 +111,7 @@ class ViewAnimator3:
                 dataPoint = self.current_object.get_frame(frame)
                 target_rotation = look_at(dataPoint.as_array(), up)
                 distance = rotation_distance(self.rotation, target_rotation)
-                self.anim = RotAnimation(self.rotation, target_rotation, now, duration=distance*4/180)
+                self.anim = RotAnimation(self.rotation, target_rotation, now, duration=distance*6/180)
 
         if self.current_object and self.anim:
             dataPoint = self.current_object.get_frame(frame)
