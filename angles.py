@@ -28,3 +28,6 @@ def look_at(target, up):
 
 def norm(vector):
     return vector / np.linalg.norm(vector)
+
+def rotation_distance(rot1:Rotation, rot2:Rotation) -> float:
+    return (rot2 * rot1.inv()).magnitude() * RAD_TO_DEG

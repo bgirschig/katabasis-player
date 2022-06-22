@@ -6,7 +6,7 @@ from msilib import sequence
 import random
 import time
 from turtle import forward
-from angles import look_at
+from angles import look_at, rotation_distance
 from dataset import DataObject, Dataset
 import vlc
 from utils import clamp, lerp, remap_range
@@ -75,9 +75,6 @@ class ViewAnimator3:
 
     def get_viewpoint(self):
         yaw, pitch, roll = self.rotation.as_euler('YXZ', degrees=True)
-        
-        forward, up = self.rotation.apply([[0,0,1], [0,1,0]])
-        print("YPR", yaw, pitch, roll, "   ", forward, up)
 
         self.viewpoint.contents.yaw = yaw
         self.viewpoint.contents.pitch = pitch
@@ -106,14 +103,15 @@ class ViewAnimator3:
     def update_object_tracker(self, frame:int, now:float, delta_time:float):
         up = self.rotation.apply(UP)
         if (self.needs_new_object(frame, now, delta_time)):
-            self.current_object = self.find_next_object(frame)
+            self.current_object = self.find_next_object(frame, min_frames=50)
             if self.current_object:
                 print("chose next object: ", self.current_object.id)
                 self.current_target_start_time = now
 
                 dataPoint = self.current_object.get_frame(frame)
                 target_rotation = look_at(dataPoint.as_array(), up)
-                self.anim = RotAnimation(self.rotation, target_rotation, now, duration=3)
+                distance = rotation_distance(self.rotation, target_rotation)
+                self.anim = RotAnimation(self.rotation, target_rotation, now, duration=distance*4/180)
 
         if self.current_object and self.anim:
             dataPoint = self.current_object.get_frame(frame)
