@@ -35,11 +35,7 @@ class ViewAnimator4:
         self.target_rotation = look_at(UP, BACK)
         self.start_time = time.time()
         
-        rots = Rotation.from_quat([
-            self.start_rotation.as_quat(),
-            self.target_rotation.as_quat(),
-        ])
-        self.slerp = Slerp([0,1], rots)
+        self.anim = RotAnimation(self.start_rotation, self.target_rotation, time.time(), duration=4)
 
     def get_viewpoint(self):
         yaw, pitch, roll = self.rotation.as_euler('YXZ', degrees=True)
@@ -52,16 +48,8 @@ class ViewAnimator4:
         return self.viewpoint
 
     def update(self, frame:int, now:float, delta_time:float):
-        lerp_time = (time.time() - self.start_time - 1) / 10
-        # self.rotation = Rotation.from_quat(
-        #     geometric_slerp(
-        #         self.start_rotation.as_quat(),
-        #         self.target_rotation.as_quat(),
-        #         clamp(lerp_time),
-        #     )
-        # )
-
-        self.rotation = self.slerp(clamp(lerp_time))
+        # lerp_time = (time.time() - self.start_time - 1) / 10
+        self.rotation = self.anim.get_rotation_at(time.time())
 
 class ViewAnimator3:
     def __init__(self, dataset:Dataset, config:Namespace) -> None:
@@ -119,12 +107,20 @@ class ViewAnimator3:
         if (self.needs_new_object(frame, now, delta_time)):
             self.current_object = self.find_next_object(frame)
             if self.current_object:
-                self.current_target_start_time = now
                 print("chose next object: ", self.current_object.id)
+                self.current_target_start_time = now
 
-        if self.current_object:
+                dataPoint = self.current_object.get_frame(frame)
+                target_rotation = look_at(dataPoint.as_array(), UP)
+                self.anim = RotAnimation(self.rotation, target_rotation, now, duration=3)
+
+        if self.current_object and self.anim:
             dataPoint = self.current_object.get_frame(frame)
             self.target_rotation = look_at(dataPoint.as_array(), UP)
+            
+            self.anim.update_target(self.target_rotation)
+            self.target_rotation = self.anim.get_rotation_at(now)
+            # self.target_rotation = None
 
         if self.target_rotation is not None:
             lerp_time = 0.04
@@ -144,36 +140,36 @@ class ViewAnimator3:
         return False
 
 class RotAnimation:
-    def __init__(self, start_rotation:Rotation, end_rotation:Rotation, end_time=None, duration=None) -> None:
-        self.start_time = time.time()
+    def __init__(self, start_rotation:Rotation, end_rotation:Rotation, start_time=None, end_time=None, duration=None) -> None:
+        self.start_time = start_time or time.time()
         self.end_time = end_time or self.start_time + duration
         self.duration = duration or end_time - self.start_time
+        
         self.start_rotation = start_rotation
         self.end_rotation = end_rotation
+
+        self.slerp = make_slerp(start_rotation, end_rotation)
     
     def update_target(self, new_rotation:Rotation):
         self.end_rotation = new_rotation
+        self.slerp = make_slerp(self.start_rotation, self.end_rotation)
 
     def update_target_forward(self, forward):
         self.end_rotation = look_at(forward, UP)
+        self.slerp = make_slerp(self.start_rotation, self.end_rotation)
 
     def smooth_time(self,time):
         return math.cos((time-1)*math.pi)*0.5+0.5
 
-    def get_rotation_at(self, time, rotation):
+    def get_rotation_at(self, time):
         lerp_time = (time - self.start_time) / self.duration
+        lerp_time = clamp(lerp_time)
         lerp_time = self.smooth_time(lerp_time)
-        # lerp_time = 1
 
-        quat = geometric_slerp(rotation.as_quat(), self.end_rotation.as_quat(), clamp(lerp_time))
-        rot = Rotation.from_quat(quat)
-        if len(quat.shape) == 2:
-            return rot[0]
-        else:
-            return rot
+        return self.slerp(lerp_time)
 
-    def get_forward_at(self, time, rotation):
-        rot = self.get_rotation_at(time, rotation)
+    def get_forward_at(self, time):
+        rot = self.get_rotation_at(time)
         return rot.apply([0,0,1])
 
 def make_slerp(rot1:Rotation, rot2:Rotation) -> Slerp:
