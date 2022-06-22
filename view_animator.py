@@ -7,7 +7,7 @@ import time
 from angles import look_at
 from dataset import DataObject, Dataset
 import vlc
-from utils import clamp, remap_range
+from utils import clamp, lerp, remap_range
 from scipy.spatial.transform import Rotation, Slerp, RotationSpline
 from scipy.spatial import geometric_slerp
 import numpy as np
@@ -15,10 +15,12 @@ import numpy as np
 DEG_TO_RAD = pi / 180
 RAD_TO_DEG = 180 / pi
 
-X, Y, Z = 0,1,2
+X, Y, Z, W = 0, 1, 2, 3
+UP = [0, 1, 0]
 
 class ViewAnimator3:
     def __init__(self, dataset:Dataset, config:Namespace) -> None:
+        self.config = config
         self.dataset = dataset
         self.current_object:DataObject = None
 
@@ -31,20 +33,22 @@ class ViewAnimator3:
             config.roll_speed,
         ], degrees=True)
 
-        self.config = config
-        self.frame = 0
-        self.val = 0
+        self.target_up = [0.0, 1.0, 0.0]
+        self.target_rotation = Rotation.identity()
+        self.current_target_start_time = -1
 
         self.viewpoint = vlc.libvlc_video_new_viewpoint()
-        self.target = np.array([-20.0,-1.0,-10.0])
 
     def get_viewpoint(self):
-        yaw, pitch, roll = Rotation.as_euler(self.rotation, 'YXZ', degrees=True)
+        yaw, pitch, roll = self.rotation.as_euler('YXZ', degrees=True)
+        
+        forward, up = self.rotation.apply([[0,0,1], [0,1,0]])
+        print("YPR", yaw, pitch, roll, "   ", forward, up)
 
         self.viewpoint.contents.yaw = yaw
         self.viewpoint.contents.pitch = pitch
         self.viewpoint.contents.roll = roll
-        self.viewpoint.contents.field_of_view = 110
+        self.viewpoint.contents.field_of_view = self.fov
 
         return self.viewpoint
 
@@ -69,39 +73,38 @@ class ViewAnimator3:
         objects = self.dataset.frames[frame]
         objects = [obj for obj in objects if obj.remaining_frames(frame) > min_frames]
         if objects:
-            print("choosen next object")
-            return random.choice(objects)
-        
+            new_obj = random.choice(objects)
+            print("chose next object: ", new_obj.id)
+            return new_obj
         return None
 
     def update(self, frame:int, now:float, delta_time:float):
-        self.target += [0.1,0,0.1]
-        self.rotation = look_at(self.target, [0,0,-1])
-
-        return
-
+        # self.rotation = Rotation.from_quat(geometric_slerp(self.rotation.as_quat(), (self.rotation * self.rotation_speed).as_quat(), clamp(delta_time)))
+        # self.rotation = self.rotation * self.rotation_speed
+        
         if self.config.track_objects:
-            if (self.needs_new_object(frame, now, delta_time)):
-                self.current_object = self.find_next_object(frame)
+            self.update_object_tracker(frame, now, delta_time)
 
+    def update_object_tracker(self, frame:int, now:float, delta_time:float):
+        if (self.needs_new_object(frame, now, delta_time)):
+            self.current_object = self.find_next_object(frame)
             if self.current_object:
+                self.current_target_start_time = now
                 dataPoint = self.current_object.get_frame(frame)
-                self.look_at(dataPoint.x, dataPoint.y, dataPoint.z)
-                # self.look_at(dataPoint.x, dataPoint.y, dataPoint.z)
-                # self.rotation = quaternion.slerp(
-                #     self.rotation, target_rotation,
-                #     0, 1, 1)
-                # self.update_rotation_target(dataPoint.x, dataPoint.y, dataPoint.z)
 
-        #     if self.start_rotation and self.target_rotation:
-        #         animation_time = clamp(now, self.rotation_animation_start, self.rotation_animation_end)
-        #         # quaternion.minimal_rotation()
-        #         # self.rotation = quaternion.slerp(
-        #         #     self.rotation,
-        #         #     self.target_rotation,
-        #         #     0,
-        #         #     1,
-        #         #     delta_time)
+        if self.current_object:
+            target_up = self.rotation.apply(UP)
+            dataPoint = self.current_object.get_frame(frame)
+            self.target_rotation = look_at(dataPoint.as_array(), target_up)
+
+        if self.target_rotation is not None:
+            lerp_time = 0.00021 * self.fov
+
+            quat = geometric_slerp(self.rotation.as_quat(), self.target_rotation.as_quat(), clamp(lerp_time))
+            rot = Rotation.from_quat(quat)
+            if len(quat.shape) == 2:
+                rot = rot[0]
+            self.rotation = rot
 
     def animate_fov(self, now):
         if self.config.fov_speed == 0:
@@ -111,7 +114,7 @@ class ViewAnimator3:
 
     def needs_new_object(self, frame, now, delta_time):
         if self.current_object is None: return True
-        if self.current_object and now - self.rotation_animation_end > 5: return True
+        if self.current_object and now - self.current_target_start_time > 5: return True
         if not self.current_object.is_in_frame(frame): return True
 
 

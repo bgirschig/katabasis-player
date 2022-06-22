@@ -9,6 +9,9 @@ class DataPoint:
     z: float = -1
     frame: int = -1
 
+    def as_array(self):
+        return [self.x, self.y, self.z]
+
 @dataclass
 class DataObject:
     id: int = -1
