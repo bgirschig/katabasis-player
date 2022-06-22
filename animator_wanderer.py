@@ -47,7 +47,6 @@ class ViewAnimator:
         self.now = now
         self.frame = frame
 
-        self.target_rotation = make_slerp(self.target_rotation, self.target_rotation*self.rotation_speed)(clamp(delta_time))
         self.current_up = self.target_rotation.apply(UP)
  
         # find objects that are not too far from our current heading
@@ -78,9 +77,10 @@ class ViewAnimator:
             data_point = self.current_object.get_frame(frame)
             self.target_rotation = look_at(data_point.as_array(), self.current_up)
 
+        self.target_rotation = make_slerp(self.target_rotation, self.target_rotation*self.rotation_speed)(clamp(delta_time))
         self.rotation = make_slerp(self.rotation, self.target_rotation)(0.1)
 
-    def find_trackable_objects(self, max_rotation_distance = 60, min_remaining_frames = 60) -> list[DataObject]:
+    def find_trackable_objects(self, max_rotation_distance = 60, min_remaining_frames = 45) -> list[DataObject]:
         candidates = []
         for obj in self.dataset.get_frame(self.frame, 'empty'):
             data_point = obj.get_frame(self.frame)
