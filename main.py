@@ -118,7 +118,7 @@ def update():
 
     player.video_update_viewpoint(viewAnimator.get_viewpoint(), True)
 
-    time.sleep(1/30)
+    time.sleep(1/60)
 
 def onTimeChange(evt):
     global video_time_offset
