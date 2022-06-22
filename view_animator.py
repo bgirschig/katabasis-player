@@ -32,26 +32,36 @@ class ViewAnimator4:
 
         self.rotation = look_at(FORWARD, UP)
         self.start_rotation = look_at(FORWARD, UP)
-        self.target_rotation = look_at(UP, FORWARD)
+        self.target_rotation = look_at(UP, BACK)
         self.start_time = time.time()
         
-        # slerp = Slerp([0,1], [self.start_rotation, self.target_rotation])
-        # slerp(0)
+        rots = Rotation.from_quat([
+            self.start_rotation.as_quat(),
+            self.target_rotation.as_quat(),
+        ])
+        self.slerp = Slerp([0,1], rots)
 
     def get_viewpoint(self):
         yaw, pitch, roll = self.rotation.as_euler('YXZ', degrees=True)
 
-        self.viewpoint.contents.yaw = 90
-        self.viewpoint.contents.pitch = 90
-        self.viewpoint.contents.roll = 0
+        self.viewpoint.contents.yaw = yaw
+        self.viewpoint.contents.pitch = pitch
+        self.viewpoint.contents.roll = roll
         self.viewpoint.contents.field_of_view = 110
 
         return self.viewpoint
 
     def update(self, frame:int, now:float, delta_time:float):
         lerp_time = (time.time() - self.start_time - 1) / 10
-        print(self.rotation.apply([FORWARD, UP]))
-        self.rotation = Rotation.from_quat(geometric_slerp(self.start_rotation.as_quat(), self.target_rotation.as_quat(), clamp(lerp_time)))
+        # self.rotation = Rotation.from_quat(
+        #     geometric_slerp(
+        #         self.start_rotation.as_quat(),
+        #         self.target_rotation.as_quat(),
+        #         clamp(lerp_time),
+        #     )
+        # )
+
+        self.rotation = self.slerp(clamp(lerp_time))
 
 class ViewAnimator3:
     def __init__(self, dataset:Dataset, config:Namespace) -> None:
@@ -100,7 +110,7 @@ class ViewAnimator3:
         return None
 
     def update(self, frame:int, now:float, delta_time:float):
-        self.rotation *= self.rotation_speed
+        # self.rotation *= self.rotation_speed
         if self.config.track_objects:
             self.update_object_tracker(frame, now, delta_time)
 
@@ -117,13 +127,9 @@ class ViewAnimator3:
             self.target_rotation = look_at(dataPoint.as_array(), UP)
 
         if self.target_rotation is not None:
-            lerp_time = 0.1
-
-            quat = geometric_slerp(self.rotation.as_quat(), self.target_rotation.as_quat(), clamp(lerp_time))
-            rot = Rotation.from_quat(quat)
-            if len(quat.shape) == 2:
-                rot = rot[0]
-            self.rotation = rot
+            lerp_time = 0.04
+            slerp = make_slerp(self.rotation, self.target_rotation)
+            self.rotation = slerp(lerp_time)
 
     def animate_fov(self, now):
         if self.config.fov_speed == 0:
@@ -133,7 +139,7 @@ class ViewAnimator3:
 
     def needs_new_object(self, frame, now, delta_time):
         if self.current_object is None: return True
-        if self.current_object and now - self.current_target_start_time > 5: return True
+        if self.current_object and now - self.current_target_start_time > 6: return True
         if not self.current_object.is_in_frame(frame): return True
         return False
 
@@ -169,5 +175,12 @@ class RotAnimation:
     def get_forward_at(self, time, rotation):
         rot = self.get_rotation_at(time, rotation)
         return rot.apply([0,0,1])
+
+def make_slerp(rot1:Rotation, rot2:Rotation) -> Slerp:
+    rots = Rotation.from_quat([
+        rot1.as_quat(),
+        rot2.as_quat(),
+    ])
+    return Slerp([0,1], rots)
 
 ViewAnimator = ViewAnimator3
