@@ -74,25 +74,26 @@ class ViewAnimator3:
             self.current_object = self.find_next_object(frame)
             if self.current_object:
                 print("chose next object: ", self.current_object.id)
-                target_point = self.current_object.get_frame(frame)
-                self.target_up = self.rotation.apply(UP)
 
-                self.target_anim = RotAnimation(self.rotation, look_at(target_point.as_array(), UP), duration=4)
+                target_point = self.current_object.get_frame(frame).as_array()
+                current_up = self.rotation.apply(UP)
+                tmp_rotation = look_at(target_point, UP)
+                self.target_up = tmp_rotation.apply(current_up)
 
                 self.current_target_start_time = now
-                dataPoint = self.current_object.get_frame(frame)
 
         if self.current_object:
             dataPoint = self.current_object.get_frame(frame)
             
-            self.target_anim.update_target_forward(dataPoint.as_array())
-            smoothed_target = self.target_anim.get_forward_at(now, self.rotation)
+            self.target_rotation = look_at(dataPoint.as_array(), self.target_up)
 
-            self.target_rotation = look_at(smoothed_target, self.target_up)
+            # self.target_anim.update_target_forward(dataPoint.as_array())
+            # smoothed_target = self.target_anim.get_forward_at(now, self.rotation)
+
+            # self.target_rotation = look_at(smoothed_target, self.target_up)
 
         if self.target_rotation is not None:
-            lerp_time = 0.00021 * self.fov
-            lerp_time = 1
+            lerp_time = 0.01
 
             quat = geometric_slerp(self.rotation.as_quat(), self.target_rotation.as_quat(), clamp(lerp_time))
             rot = Rotation.from_quat(quat)

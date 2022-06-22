@@ -20,6 +20,9 @@ class DataObject:
     datapoints: list[DataPoint] = field(default_factory=list)
     duration: int = 0
 
+    def get_first_point(self) -> DataPoint:
+        return self.datapoints[0]
+
     def get_frame(self, frame:int):
         return self.datapoints[frame - self.start_frame]
 
