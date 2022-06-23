@@ -15,6 +15,8 @@ MIN_TRACKING_TIMEOUT_DURATION = 5
 MAX_TRACKING_TIMEOUT_DURATION = 13
 MIN_ANIM_DURATION = 1
 
+TRACKED_OBJECT_FOV_RANGE = 30
+
 class ViewAnimator:
     def __init__(self, dataset:Dataset, config:Namespace) -> None:
         self.dataset = dataset
@@ -35,6 +37,7 @@ class ViewAnimator:
         self.tracking_timeout = None
         self.anim = None
 
+        self.target_fov = config.min_fov
         self.fov = config.min_fov
 
     def get_viewpoint(self):
@@ -55,7 +58,10 @@ class ViewAnimator:
  
         # find objects that are not too far from our current heading
         if self.should_look_for_object():
-            self.current_object = None
+            if self.current_object:
+                self.current_object = None
+                self.target_fov = self.config.max_fov
+
             candidates = self.find_trackable_objects(max_rotation_distance=self.fov * 0.5)
             if candidates:
                 # Select an object
@@ -73,19 +79,19 @@ class ViewAnimator:
                 # Compute the animation duration. Depends on fov to make the "visual speed" more consistent
                 animation_duration = max(MIN_ANIM_DURATION, distance*10/self.fov)
 
-                # log into and create the actual animation
+                # Slightly randomized zoom per object
+                self.target_fov = self.config.min_fov + random.random() * TRACKED_OBJECT_FOV_RANGE
+
+                # Log info
                 print(f"""
 Chose new object {self.current_object.id} out of {len(candidates)} choices
     Distance: {distance}°
     Tracking will last at most {timeout_duration}s
     Animation duration: {animation_duration}s
+    Target Fov: {self.target_fov}
 """.strip())
+                # Actually setup the rotation animation
                 self.anim = RotationAnimation(self.rotation, anim_target_rotation, now, duration=distance*10/self.fov)
-
-        if self.should_look_for_object():
-            self.fov = lerp(self.fov, self.config.max_fov, 0.15*delta_time)
-        else:
-            self.fov = lerp(self.fov, self.config.min_fov, 0.15*delta_time)
 
         if self.anim:
             if self.current_object:
@@ -101,8 +107,12 @@ Chose new object {self.current_object.id} out of {len(candidates)} choices
             data_point = self.current_object.get_frame(frame)
             self.target_rotation = look_at(data_point.as_array(), self.current_up)
 
+        # Apply "default" rotation
         self.target_rotation = make_slerp(self.target_rotation, self.target_rotation*self.rotation_speed)(clamp(delta_time))
+        # Update rotation to follow target rotation (smoothed)
         self.rotation = make_slerp(self.rotation, self.target_rotation)(0.1)
+        # Update FOV to follow target_fov (smoothed)
+        self.fov = lerp(self.fov, self.target_fov, 0.15*delta_time)
 
     def find_trackable_objects(self, max_rotation_distance = 60, min_remaining_frames = 45, allow_current=False) -> list[DataObject]:
         candidates = []

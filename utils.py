@@ -36,7 +36,12 @@ def vector_lerp(vector_a, vector_b, time):
     return output
 
 def rand_range_gauss(min=-1, max=1, spread=0.1) -> float:
-    """ Returns a random number with a (roughly) gaussian distribution, guaranteed to be in the given range """
+    """ Returns a random number with a (roughly) gaussian distribution, guaranteed to be in the given range
+    Args:
+        min (float)
+        max (float)
+        spread (float): How likely is it to get values near the bounds of the min/max range
+    """
 
     if math.isnan(min) or math.isnan(max):
         raise Exception("Invalid parameters for rand_range_gauss")

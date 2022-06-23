@@ -5,10 +5,11 @@ python main.py ./data/equirect_360.mp4 ./data/360_prepped_data.csv \
     --yaw_speed 3 \
     --pitch_speed -4 \
     --roll_speed 5 \
-    --start_time 200 \
+    --start_time 30 \
     --track_objects
 
 ######## useful times:
 # 30: after smoke
 # 200: baby room
 # 250: tube
+# 300: tall room
