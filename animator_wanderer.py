@@ -54,8 +54,9 @@ class ViewAnimator:
         self.ready = False
 
     def log(self, *values):
-        mode = "BLIND" if self.blind else "ACTIVE"
-        print(f"[mode:{mode} frame:{self.frame}]", *values)
+        if self.config.enable_logs:
+            mode = "BLIND" if self.blind else "ACTIVE"
+            print(f"[mode:{mode} frame:{self.frame}]", *values)
 
     def get_viewpoint(self):
         yaw, pitch, roll = self.rotation.as_euler('YXZ', degrees=True)

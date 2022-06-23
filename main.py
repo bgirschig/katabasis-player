@@ -32,6 +32,7 @@ parser.add_argument("--fov_speed", type=float, help="How fast to animate the fie
 parser.add_argument("--min_fov", type=float, help="Minimum value for the field of view", default=10)
 parser.add_argument("--max_fov", type=float, help="Maximum value for the field of view", default=150)
 
+parser.add_argument("--enable_logs", action="store_true", help="set this flag to enable the debug logs")
 parser.add_argument("--windowed", action="store_true", help="set this flag to disable the true fullscreen mode")
 
 args = parser.parse_args()
