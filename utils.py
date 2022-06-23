@@ -1,4 +1,5 @@
 import math
+import random
 
 DEG_TO_RAD = math.pi / 180
 RAD_TO_DEG = 180 / math.pi
@@ -33,3 +34,20 @@ def vector_lerp(vector_a, vector_b, time):
     for idx in range(len(vector_a)):
         output.append(vector_a[idx] + (vector_b[idx]-vector_a[idx]) * time)
     return output
+
+def rand_range_gauss(min=-1, max=1, spread=0.1) -> float:
+    """ Returns a random number with a (roughly) gaussian distribution, guaranteed to be in the given range """
+
+    if math.isnan(min) or math.isnan(max):
+        raise Exception("Invalid parameters for rand_range_gauss")
+    if max < min:
+        raise Exception("Invalid parameters for rand_range_gauss. This would lead to infinite loops")
+
+    mu = (min + max) / 2
+    gauss = (max - min) * spread
+
+    val = None
+    while val is None or val < min or val > max:
+        val = random.gauss(mu, gauss)
+
+    return val

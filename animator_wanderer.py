@@ -1,6 +1,6 @@
 import random
 from rotation_animation import RotationAnimation
-from utils import clamp, lerp, remap_range
+from utils import clamp, lerp, rand_range_gauss, remap_range
 from scipy.spatial.transform import Rotation, Slerp, RotationSpline
 from dataset import DataObject, Dataset
 from argparse import Namespace
@@ -11,7 +11,9 @@ import time
 
 X, Y, Z, W = 0, 1, 2, 3
 
-MAX_TRACKING_DURATION = 10
+MIN_TRACKING_TIMEOUT_DURATION = 5
+MAX_TRACKING_TIMEOUT_DURATION = 13
+MIN_ANIM_DURATION = 1
 
 class ViewAnimator:
     def __init__(self, dataset:Dataset, config:Namespace) -> None:
@@ -56,13 +58,28 @@ class ViewAnimator:
             self.current_object = None
             candidates = self.find_trackable_objects(max_rotation_distance=self.fov * 0.5)
             if candidates:
+                # Select an object
                 self.current_object = random.choice(candidates)
+                
+                # Find the target rotation to get to that object
                 data_point = self.current_object.get_frame(frame)
                 anim_target_rotation = look_at(data_point.as_array(), self.current_up)
                 distance = rotation_distance(self.rotation, anim_target_rotation)
-                self.tracking_timeout = now + MAX_TRACKING_DURATION
-                print(f"Chose new object {self.current_object.id} out of {len(candidates)} choices (d={distance})")
-        
+                
+                # Set the tracking timeout (Max duration to track this object) 
+                timeout_duration = rand_range_gauss(MIN_TRACKING_TIMEOUT_DURATION, MAX_TRACKING_TIMEOUT_DURATION)
+                self.tracking_timeout = now + timeout_duration
+
+                # Compute the animation duration. Depends on fov to make the "visual speed" more consistent
+                animation_duration = max(MIN_ANIM_DURATION, distance*10/self.fov)
+
+                # log into and create the actual animation
+                print(f"""
+Chose new object {self.current_object.id} out of {len(candidates)} choices
+    Distance: {distance}°
+    Tracking will last at most {timeout_duration}s
+    Animation duration: {animation_duration}s
+""".strip())
                 self.anim = RotationAnimation(self.rotation, anim_target_rotation, now, duration=distance*10/self.fov)
 
         if self.should_look_for_object():
@@ -105,9 +122,11 @@ class ViewAnimator:
         if self.current_object is None:
             return True
         if (self.tracking_timeout and self.now >= self.tracking_timeout):
+            print("Reached tracking timeout. Looking for new object")
             self.tracking_timeout = None
             return True
         if (self.current_object.remaining_frames(self.frame) <= 0):
+            print("Current tracked object is no longer present. Looking for new object")
             return True
 
         return False
