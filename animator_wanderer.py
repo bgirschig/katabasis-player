@@ -18,13 +18,9 @@ MIN_ANIM_DURATION = 1
 
 TRACKED_OBJECT_FOV_RANGE = 30
 
-class AnimatorMode(Enum):
-    BLIND = 0
-    ACTIVE = 1
+MIN_DURATION_BETWEEN_MODE_CHANGE = 20
+MAX_DURATION_BETWEEN_MODE_CHANGE = 40
 
-    def __str__(self) -> str:
-        base = super().__str__()
-        return base.split(".")[1]
 
 class ViewAnimator:
     def __init__(self, dataset:Dataset, config:Namespace) -> None:
@@ -49,10 +45,12 @@ class ViewAnimator:
         self.target_fov = config.min_fov
         self.fov = config.min_fov
 
-        self.mode = AnimatorMode.ACTIVE
+        self.blind = False
+        self.mode_change_timeout = self.now + random.randrange(MIN_DURATION_BETWEEN_MODE_CHANGE, MAX_DURATION_BETWEEN_MODE_CHANGE)
 
     def log(self, *values):
-        print(f"[mode:{self.mode} frame:{self.frame}]", *values)
+        mode = "BLIND" if self.blind else "ACTIVE"
+        print(f"[mode:{mode} frame:{self.frame}]", *values)
 
     def get_viewpoint(self):
         yaw, pitch, roll = self.rotation.as_euler('YXZ', degrees=True)
@@ -69,6 +67,12 @@ class ViewAnimator:
         self.frame = frame
 
         self.current_up = self.target_rotation.apply(UP)
+
+        if now > self.mode_change_timeout:
+            self.blind = not self.blind
+            mode_duration = random.randrange(MIN_DURATION_BETWEEN_MODE_CHANGE, MAX_DURATION_BETWEEN_MODE_CHANGE)
+            self.mode_change_timeout = now + mode_duration
+            self.log(f"Changed mode. Next change in {mode_duration:0.2f}s")
  
         # find objects that are not too far from our current heading
         if self.should_look_for_object():
@@ -76,7 +80,11 @@ class ViewAnimator:
                 self.current_object = None
                 self.target_fov = self.config.max_fov
 
-            candidates = self.find_trackable_objects(max_rotation_distance=self.fov * 0.5)
+            if self.blind:
+                candidates = None
+            else:
+                candidates = self.find_trackable_objects(max_rotation_distance=self.fov * 0.5)
+
             if candidates:
                 # Select an object
                 self.current_object = random.choice(candidates)
