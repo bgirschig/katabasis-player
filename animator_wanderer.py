@@ -100,6 +100,8 @@ class ViewAnimator:
         return candidates
 
     def should_look_for_object(self):
+        if self.anim:
+            return False
         if self.current_object is None:
             return True
         if (self.tracking_timeout and self.now >= self.tracking_timeout):
