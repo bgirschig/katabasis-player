@@ -9,6 +9,7 @@ import vlc
 from utils import DEG_TO_RAD, RAD_TO_DEG, UP, DOWN, RIGHT, FORWARD, BACK
 import time
 from enum import Enum
+from animation import Animation
 
 X, Y, Z, W = 0, 1, 2, 3
 
@@ -45,6 +46,7 @@ class ViewAnimator:
 
         self.target_fov = config.min_fov
         self.fov = config.min_fov
+        self.fov_anim = None
 
         self.blind = True
         self.toggle_blind_mode()
@@ -71,6 +73,7 @@ class ViewAnimator:
         self.current_mode_start_time = time.time()
         self.current_mode_duration = random.randrange(MIN_DURATION_BETWEEN_MODE_CHANGE, MAX_DURATION_BETWEEN_MODE_CHANGE)
 
+        self.fov_anim = Animation(self.target_fov, self.config.max_fov, duration=5)
         self.target_fov = self.config.max_fov
         self.log(f"Changed mode. Next change in {self.current_mode_duration:0.2f}s")
 
@@ -102,7 +105,7 @@ class ViewAnimator:
         if self.should_look_for_object():
             if self.current_object:
                 self.current_object = None
-                self.target_fov = self.config.max_fov
+                self.fov_anim = Animation(self.target_fov, self.config.max_fov, duration=5)
 
             if self.blind:
                 candidates = None
@@ -126,7 +129,8 @@ class ViewAnimator:
                 animation_duration = max(MIN_ANIM_DURATION, distance*10/self.fov)
 
                 # Slightly randomized zoom per object
-                self.target_fov = self.config.min_fov + random.random() * TRACKED_OBJECT_FOV_RANGE
+                object_fov = self.config.min_fov + random.random() * TRACKED_OBJECT_FOV_RANGE
+                self.fov_anim = Animation(self.target_fov, object_fov, duration=animation_duration)
 
                 # Log info
                 self.log(f"""
@@ -148,6 +152,11 @@ class ViewAnimator:
             if self.anim.is_done_at(now):
                 self.log("anim is done")
                 self.anim = None
+
+        if self.fov_anim:
+            self.target_fov = self.fov_anim.get_value_at(now)
+            if self.fov_anim.is_done_at(now):
+                self.fov_anim = None
 
         elif self.current_object:
             data_point = self.current_object.get_frame(frame)
