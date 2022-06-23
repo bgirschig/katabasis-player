@@ -33,13 +33,15 @@ class ViewAnimator:
         self.tracking_timeout = None
         self.anim = None
 
+        self.fov = config.min_fov
+
     def get_viewpoint(self):
         yaw, pitch, roll = self.rotation.as_euler('YXZ', degrees=True)
 
         self.viewpoint.contents.yaw = yaw
         self.viewpoint.contents.pitch = pitch
         self.viewpoint.contents.roll = roll
-        self.viewpoint.contents.field_of_view = 110
+        self.viewpoint.contents.field_of_view = self.fov
 
         return self.viewpoint
 
@@ -52,7 +54,7 @@ class ViewAnimator:
         # find objects that are not too far from our current heading
         if self.should_look_for_object():
             self.current_object = None
-            candidates = self.find_trackable_objects()
+            candidates = self.find_trackable_objects(max_rotation_distance=self.fov * 0.5)
             if candidates:
                 self.current_object = random.choice(candidates)
                 data_point = self.current_object.get_frame(frame)
@@ -61,7 +63,12 @@ class ViewAnimator:
                 self.tracking_timeout = now + MAX_TRACKING_DURATION
                 print(f"Chose new object {self.current_object.id} out of {len(candidates)} choices (d={distance})")
         
-                self.anim = RotationAnimation(self.rotation, anim_target_rotation, now, duration=3)
+                self.anim = RotationAnimation(self.rotation, anim_target_rotation, now, duration=distance*10/self.fov)
+
+        if self.should_look_for_object():
+            self.fov = lerp(self.fov, self.config.max_fov, 0.15*delta_time)
+        else:
+            self.fov = lerp(self.fov, self.config.min_fov, 0.15*delta_time)
 
         if self.anim:
             if self.current_object:
@@ -80,9 +87,11 @@ class ViewAnimator:
         self.target_rotation = make_slerp(self.target_rotation, self.target_rotation*self.rotation_speed)(clamp(delta_time))
         self.rotation = make_slerp(self.rotation, self.target_rotation)(0.1)
 
-    def find_trackable_objects(self, max_rotation_distance = 60, min_remaining_frames = 45) -> list[DataObject]:
+    def find_trackable_objects(self, max_rotation_distance = 60, min_remaining_frames = 45, allow_current=False) -> list[DataObject]:
         candidates = []
         for obj in self.dataset.get_frame(self.frame, 'empty'):
+            if not allow_current and obj == self.current_object:
+                continue
             data_point = obj.get_frame(self.frame)
             rotation = look_at(data_point.as_array(), self.current_up)
             distance = rotation_distance(self.rotation, rotation)
