@@ -19,7 +19,7 @@ MIN_ANIM_DURATION = 1
 TRACKED_OBJECT_FOV_RANGE = 30
 
 MIN_DURATION_BETWEEN_MODE_CHANGE = 20
-MAX_DURATION_BETWEEN_MODE_CHANGE = 40
+MAX_DURATION_BETWEEN_MODE_CHANGE = 50
 
 
 class ViewAnimator:
@@ -35,18 +35,21 @@ class ViewAnimator:
         # state
         self.frame = 0
         self.now = time.time()
-        self.target_rotation = Rotation.identity()
+        self.target_rotation = self.rotation
 
         # object tracking
         self.current_object:DataObject = None
         self.tracking_timeout = None
         self.anim = None
+        self.last_tracking_time = 0
 
         self.target_fov = config.min_fov
         self.fov = config.min_fov
 
-        self.blind = False
-        self.mode_change_timeout = self.now + random.randrange(MIN_DURATION_BETWEEN_MODE_CHANGE, MAX_DURATION_BETWEEN_MODE_CHANGE)
+        self.blind = True
+        self.toggle_blind_mode()
+
+        self.ready = False
 
     def log(self, *values):
         mode = "BLIND" if self.blind else "ACTIVE"
@@ -62,18 +65,39 @@ class ViewAnimator:
 
         return self.viewpoint
 
+    def toggle_blind_mode(self):
+        self.blind = not self.blind
+
+        self.current_mode_start_time = time.time()
+        self.current_mode_duration = random.randrange(MIN_DURATION_BETWEEN_MODE_CHANGE, MAX_DURATION_BETWEEN_MODE_CHANGE)
+
+        self.target_fov = self.config.max_fov
+        self.log(f"Changed mode. Next change in {self.current_mode_duration:0.2f}s")
+
+    def should_toggle_blind_mode(self, time):
+        timer_expired = time > self.current_mode_start_time + self.current_mode_duration
+        time_since_last_tracking = time - self.last_tracking_time
+
+        if self.blind:
+            return timer_expired
+        
+        if self.blind and time_since_last_tracking > MIN_DURATION_BETWEEN_MODE_CHANGE:
+            print("prevent blind")
+            self.current_mode_start_time = time
+            # Don't go into blind mode if we've been looking for objects to track for a while (equivalent of blind mode)
+            return False
+
+        return timer_expired
+
     def update(self, frame:int, now:float, delta_time:float):
         self.now = now
         self.frame = frame
 
         self.current_up = self.target_rotation.apply(UP)
 
-        if now > self.mode_change_timeout:
-            self.blind = not self.blind
-            mode_duration = random.randrange(MIN_DURATION_BETWEEN_MODE_CHANGE, MAX_DURATION_BETWEEN_MODE_CHANGE)
-            self.mode_change_timeout = now + mode_duration
-            self.log(f"Changed mode. Next change in {mode_duration:0.2f}s")
- 
+        if self.should_toggle_blind_mode(now):
+            self.toggle_blind_mode()
+
         # find objects that are not too far from our current heading
         if self.should_look_for_object():
             if self.current_object:
@@ -128,6 +152,8 @@ class ViewAnimator:
         elif self.current_object:
             data_point = self.current_object.get_frame(frame)
             self.target_rotation = look_at(data_point.as_array(), self.current_up)
+
+            self.last_tracking_time = now
 
         # Apply "default" rotation
         self.target_rotation = make_slerp(self.target_rotation, self.target_rotation*self.rotation_speed)(clamp(delta_time))
