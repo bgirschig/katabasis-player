@@ -8,6 +8,7 @@ from angles import look_at, make_slerp, rotation_distance
 import vlc
 from utils import DEG_TO_RAD, RAD_TO_DEG, UP, DOWN, RIGHT, FORWARD, BACK
 import time
+from enum import Enum
 
 X, Y, Z, W = 0, 1, 2, 3
 
@@ -16,6 +17,14 @@ MAX_TRACKING_TIMEOUT_DURATION = 13
 MIN_ANIM_DURATION = 1
 
 TRACKED_OBJECT_FOV_RANGE = 30
+
+class AnimatorMode(Enum):
+    BLIND = 0
+    ACTIVE = 1
+
+    def __str__(self) -> str:
+        base = super().__str__()
+        return base.split(".")[1]
 
 class ViewAnimator:
     def __init__(self, dataset:Dataset, config:Namespace) -> None:
@@ -39,6 +48,11 @@ class ViewAnimator:
 
         self.target_fov = config.min_fov
         self.fov = config.min_fov
+
+        self.mode = AnimatorMode.ACTIVE
+
+    def log(self, *values):
+        print(f"[mode:{self.mode} frame:{self.frame}]", *values)
 
     def get_viewpoint(self):
         yaw, pitch, roll = self.rotation.as_euler('YXZ', degrees=True)
@@ -83,13 +97,13 @@ class ViewAnimator:
                 self.target_fov = self.config.min_fov + random.random() * TRACKED_OBJECT_FOV_RANGE
 
                 # Log info
-                print(f"""
-Chose new object {self.current_object.id} out of {len(candidates)} choices
-    Distance: {distance}°
-    Tracking will last at most {timeout_duration}s
-    Animation duration: {animation_duration}s
-    Target Fov: {self.target_fov}
-""".strip())
+                self.log(f"""
+  Chose new object {self.current_object.id} out of {len(candidates)} choices
+    Distance                        {distance:0.2f}°
+    Tracking will last at most      {timeout_duration:0.2f}s
+    Animation to object will last   {animation_duration:0.2f}s
+    Target Fov                      {self.target_fov:0.2f}\
+""")
                 # Actually setup the rotation animation
                 self.anim = RotationAnimation(self.rotation, anim_target_rotation, now, duration=distance*10/self.fov)
 
@@ -100,7 +114,7 @@ Chose new object {self.current_object.id} out of {len(candidates)} choices
                 self.anim.update_target(new_anim_target)
             self.target_rotation = self.anim.get_rotation_at(now)
             if self.anim.is_done_at(now):
-                print("anim is done")
+                self.log("anim is done")
                 self.anim = None
 
         elif self.current_object:
@@ -132,11 +146,11 @@ Chose new object {self.current_object.id} out of {len(candidates)} choices
         if self.current_object is None:
             return True
         if (self.tracking_timeout and self.now >= self.tracking_timeout):
-            print("Reached tracking timeout. Looking for new object")
+            self.log("Reached tracking timeout. Looking for new object")
             self.tracking_timeout = None
             return True
         if (self.current_object.remaining_frames(self.frame) <= 0):
-            print("Current tracked object is no longer present. Looking for new object")
+            self.log("Current tracked object is no longer present. Looking for new object")
             return True
 
         return False
