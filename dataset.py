@@ -26,7 +26,7 @@ class DataObject:
         return self.datapoints[0]
 
     def get_frame(self, frame:int):
-        return self.datapoints[frame - self.start_frame]
+        return self.datapoints[clamp(frame - self.start_frame, 0, len(self.datapoints)-1)]
 
     def is_in_frame(self, frame:int):
         return frame > self.start_frame and frame < self.end_frame

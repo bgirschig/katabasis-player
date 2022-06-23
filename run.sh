@@ -8,7 +8,7 @@ python main.py ./data/equirect_360.mp4 ./data/360_prepped_data.csv \
     --start_time 200 \
     --track_objects
 
-# useful times:
+######## useful times:
 # 30: after smoke
 # 200: baby room
 # 250: tube
