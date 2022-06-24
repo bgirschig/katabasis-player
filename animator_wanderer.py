@@ -160,17 +160,16 @@ class ViewAnimator:
             if self.anim.is_done_at(now):
                 self.log("anim is done")
                 self.anim = None
-
-        if self.fov_anim:
-            self.target_fov = self.fov_anim.get_value_at(now)
-            if self.fov_anim.is_done_at(now):
-                self.fov_anim = None
-
         elif self.current_object:
             data_point = self.current_object.get_frame(frame)
             self.target_rotation = look_at(data_point.as_array(), self.current_up)
 
             self.last_tracking_time = now
+
+        if self.fov_anim:
+            self.target_fov = self.fov_anim.get_value_at(now)
+            if self.fov_anim.is_done_at(now):
+                self.fov_anim = None
 
         # Apply "default" rotation
         self.target_rotation = make_slerp(self.target_rotation, self.target_rotation*self.rotation_speed)(clamp(delta_time))
