@@ -34,6 +34,7 @@ parser.add_argument("--max_fov", type=float, help="Maximum value for the field o
 
 parser.add_argument("--enable_logs", action="store_true", help="set this flag to enable the debug logs")
 parser.add_argument("--windowed", action="store_true", help="set this flag to disable the true fullscreen mode")
+parser.add_argument("--record", type=str, help="Record view parameters and save them to this file. Leave unset to disable recording", default=None)
 
 args = parser.parse_args()
 
@@ -55,7 +56,7 @@ def init():
     global dataset, viewAnimator, prev_time
 
     dataset = Dataset(args.dataset_path)
-    viewAnimator = ViewAnimator(dataset, args)
+    viewAnimator = ViewAnimator(dataset, args, record=args.record)
 
     prev_time = time.time()
 
@@ -141,6 +142,12 @@ def main():
         while True: update()
     except KeyboardInterrupt:
         pass
+
+    if args.record:
+        try:
+            viewAnimator.save_recording(args.record)
+        except Exception as e:
+            print("Could not draw plots:", e)
 
     print("clean exit")
 

@@ -10,6 +10,7 @@ from utils import DEG_TO_RAD, RAD_TO_DEG, UP, DOWN, RIGHT, FORWARD, BACK
 import time
 from enum import Enum
 from animation import Animation
+import numpy as np
 
 X, Y, Z, W = 0, 1, 2, 3
 
@@ -24,9 +25,10 @@ MAX_DURATION_BETWEEN_MODE_CHANGE = 50
 
 
 class ViewAnimator:
-    def __init__(self, dataset:Dataset, config:Namespace) -> None:
+    def __init__(self, dataset:Dataset, config:Namespace, record=False) -> None:
         self.dataset = dataset
         self.config = config
+        self.record = record
 
         self.rotation_speed = Rotation.from_euler('xyz', [config.yaw_speed, config.pitch_speed, config.roll_speed], degrees=True)
 
@@ -51,7 +53,9 @@ class ViewAnimator:
         self.blind = True
         self.toggle_blind_mode()
 
-        self.ready = False
+        if self.record:
+            self.history = []
+            self.history_labels = ['frame', 'yaw', 'pitch', 'roll', 'fov']
 
     def log(self, *values):
         if self.config.enable_logs:
@@ -60,6 +64,9 @@ class ViewAnimator:
 
     def get_viewpoint(self):
         yaw, pitch, roll = self.rotation.as_euler('YXZ', degrees=True)
+
+        if self.record:
+            self.history.append([self.now, self.frame, yaw, pitch, roll, self.fov])
 
         self.viewpoint.contents.yaw = yaw
         self.viewpoint.contents.pitch = pitch
@@ -198,3 +205,7 @@ class ViewAnimator:
             return True
 
         return False
+    
+    def save_recording(self, target):
+        data = np.array(self.history)
+        np.save(target, data)
